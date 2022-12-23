@@ -1,6 +1,3 @@
-// useCallback: custom hooks
-// http://localhost:3000/isolated/exercise/02.js
-
 import * as React from 'react'
 import {
   fetchPokemon,
@@ -27,42 +24,39 @@ function asyncReducer(state, action) {
   }
 }
 
-function useAsync(asyncCallback, initialState, dependencies) {
+function useAsync(initialState) {
   const [state, dispatch] = React.useReducer(asyncReducer, {
     status: 'idle',
     data: null,
     error: null,
     ...initialState,
   })
+  const {data, error, status} = state
 
-  React.useEffect(() => {
-    const promise = asyncCallback()
-    if (!promise) return
+  const run = React.useCallback(promise => {
     dispatch({type: 'pending'})
     promise.then(
-      data => {
-        dispatch({type: 'resolved', data})
-      },
-      error => {
-        dispatch({type: 'rejected', error})
-      },
+      data => dispatch({type: 'resolved', data}),
+      error => dispatch({type: 'rejected', error}),
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, dependencies)
+  }, [])
 
-  return state
+  return {error, status, data, run}
 }
 
 function PokemonInfo({pokemonName}) {
-  const state = useAsync(
-    () => {
-      if (!pokemonName) return
-      return fetchPokemon(pokemonName)
-    },
-    {},
-    [pokemonName],
-  )
-  const {data: pokemon, status, error} = state
+  const {
+    data: pokemon,
+    status,
+    error,
+    run,
+  } = useAsync({status: pokemonName ? 'pending' : 'idle'})
+
+  React.useEffect(() => {
+    if (!pokemonName) return
+    const pokemonPromise = fetchPokemon(pokemonName)
+    run(pokemonPromise)
+  }, [pokemonName, run])
 
   switch (status) {
     case 'idle':
